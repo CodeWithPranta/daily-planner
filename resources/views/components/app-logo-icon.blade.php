@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 42" {{ $attributes }}>
+    <rect x="6" y="3" width="28" height="36" rx="6" fill="currentColor" opacity="0.15"/>
+    <rect x="6" y="3" width="28" height="36" rx="6" stroke="currentColor" stroke-width="2.2" fill="none"/>
+    <path d="M14 3.5c0-1.38 1.12-2.5 2.5-2.5h7c1.38 0 2.5 1.12 2.5 2.5v3c0 1.38-1.12 2.5-2.5 2.5h-7C15.12 9 14 7.88 14 6.5v-3z" fill="currentColor"/>
+    <path d="M13 20l4 4 8-9" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M13 30l4 4 8-9" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.4"/>
+</svg>

@@ -1,0 +1,138 @@
+@import 'tailwindcss';
+@import '../../vendor/livewire/flux/dist/flux.css';
+
+@source '../views';
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../vendor/livewire/flux-pro/stubs/**/*.blade.php';
+@source '../../vendor/livewire/flux/stubs/**/*.blade.php';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+
+    --color-zinc-50: #fafafa;
+    --color-zinc-100: #f5f5f5;
+    --color-zinc-200: #e5e5e5;
+    --color-zinc-300: #d4d4d4;
+    --color-zinc-400: #a3a3a3;
+    --color-zinc-500: #737373;
+    --color-zinc-600: #525252;
+    --color-zinc-700: #404040;
+    --color-zinc-800: #262626;
+    --color-zinc-900: #171717;
+    --color-zinc-950: #0a0a0a;
+
+    /* App brand palette */
+    --color-brand-50: #eef2ff;
+    --color-brand-100: #e0e7ff;
+    --color-brand-200: #c7d2fe;
+    --color-brand-300: #a5b4fc;
+    --color-brand-400: #818cf8;
+    --color-brand-500: #6366f1;
+    --color-brand-600: #4f46e5;
+    --color-brand-700: #4338ca;
+    --color-brand-800: #3730a3;
+    --color-brand-900: #312e81;
+
+    --color-accent: var(--color-brand-600);
+    --color-accent-content: var(--color-brand-600);
+    --color-accent-foreground: var(--color-white);
+}
+
+@layer theme {
+    .dark {
+        --color-accent: var(--color-brand-500);
+        --color-accent-content: var(--color-brand-500);
+        --color-accent-foreground: var(--color-white);
+    }
+}
+
+@layer base {
+
+    *,
+    ::after,
+    ::before,
+    ::backdrop,
+    ::file-selector-button {
+        border-color: var(--color-gray-200, currentColor);
+    }
+}
+
+[data-flux-field]:not(ui-radio, ui-checkbox) {
+    @apply grid gap-2;
+}
+
+[data-flux-label] {
+    @apply  !mb-0 !leading-tight;
+}
+
+input:focus[data-flux-control],
+textarea:focus[data-flux-control],
+select:focus[data-flux-control] {
+    @apply outline-hidden ring-2 ring-accent ring-offset-2 ring-offset-accent-foreground;
+}
+
+/* ------------------------------------------------------------------ */
+/* App mobile-first / PWA base styles                                  */
+/* ------------------------------------------------------------------ */
+
+@layer base {
+    html {
+        -webkit-text-size-adjust: 100%;
+        -webkit-tap-highlight-color: transparent;
+        text-size-adjust: 100%;
+    }
+
+    body {
+        @apply bg-zinc-50 text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100;
+        overscroll-behavior-y: none;
+    }
+
+    /* Standalone PWA: use the full display including safe areas */
+    @media (display-mode: standalone) {
+        body {
+            user-select: none;
+            -webkit-user-select: none;
+        }
+    }
+}
+
+@layer utilities {
+    /* Account for notches / home indicator when installed */
+    .pb-safe {
+        padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
+    }
+    .pt-safe {
+        padding-top: calc(env(safe-area-inset-top, 0px) + 0.5rem);
+    }
+    .mb-nav {
+        margin-bottom: calc(env(safe-area-inset-bottom, 0px) + 4.75rem);
+    }
+    .pb-nav {
+        padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 5.5rem);
+    }
+    .pb-timer {
+        padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 9.5rem);
+    }
+    .h-nav {
+        height: calc(env(safe-area-inset-bottom, 0px) + 4.25rem);
+    }
+    .no-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+    .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+}
+
+/* Smooth tap targets on mobile */
+button,
+a {
+    touch-action: manipulation;
+}
+
+/* \[:where(&)\]:size-4 {
+    @apply size-4;
+} */
