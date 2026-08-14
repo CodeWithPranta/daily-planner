@@ -158,7 +158,7 @@
             @foreach ($tasks as $task)
                 <x-card padding="false" class="overflow-hidden" wire:key="task-{{ $task->id }}">
                     <div class="flex items-center gap-3 p-4">
-                        <a href="{{ route('tasks.show', $task) }}" wire:navigate class="flex size-9 flex-none items-center justify-center rounded-full border-2 @if($task->status === \App\Enums\TaskStatus::Completed) border-emerald-500 bg-emerald-500 text-white @elseif($task->status === \App\Enums\TaskStatus::InProgress) border-blue-500 bg-blue-500 text-white @elseif($task->status === \App\Enums\TaskStatus::Skipped) border-rose-400 bg-rose-400 text-white @else border-zinc-300 dark:border-zinc-700 @endif">
+                        <button type="button" wire:click="toggleComplete({{ $task->id }})" wire:key="toggle-{{ $task->id }}" class="flex size-9 flex-none items-center justify-center rounded-full border-2 transition active:scale-90 @if($task->status === \App\Enums\TaskStatus::Completed) border-emerald-500 bg-emerald-500 text-white @elseif($task->status === \App\Enums\TaskStatus::InProgress) border-blue-500 bg-blue-500 text-white @elseif($task->status === \App\Enums\TaskStatus::Skipped) border-rose-400 bg-rose-400 text-white @else border-zinc-300 dark:border-zinc-700 @endif" aria-label="{{ $task->status === \App\Enums\TaskStatus::Completed ? __('Mark as not done') : __('Mark as done') }}">
                             @if($task->status === \App\Enums\TaskStatus::Completed)
                                 <flux:icon name="check" class="size-5" variant="solid" />
                             @elseif($task->status === \App\Enums\TaskStatus::InProgress)
@@ -166,7 +166,10 @@
                             @elseif($task->status === \App\Enums\TaskStatus::Skipped)
                                 <flux:icon name="forward" class="size-4" variant="solid" />
                             @endif
-                        </a>
+                            <span wire:loading wire:target="toggleComplete({{ $task->id }})" class="absolute inset-0 flex items-center justify-center">
+                                <flux:icon name="arrow-path" class="size-4 animate-spin" />
+                            </span>
+                        </button>
                         <a href="{{ route('tasks.show', $task) }}" wire:navigate class="min-w-0 flex-1">
                             <div class="flex flex-wrap items-center gap-2">
                                 <p class="truncate font-medium @if($task->status === \App\Enums\TaskStatus::Completed) text-zinc-400 line-through dark:text-zinc-500 @endif">{{ $task->title }}</p>
@@ -186,6 +189,11 @@
                             </div>
                         </a>
                         <div class="flex flex-none items-center gap-1">
+                            @if ($task->status !== \App\Enums\TaskStatus::Completed && $task->status !== \App\Enums\TaskStatus::Skipped)
+                                <button type="button" wire:click="skipTaskFromList({{ $task->id }})" class="rounded-lg p-2 text-zinc-400 transition hover:bg-rose-50 hover:text-rose-500 dark:hover:bg-rose-500/10" aria-label="{{ __('Skip') }}">
+                                    <flux:icon name="forward" class="size-5" />
+                                </button>
+                            @endif
                             <button type="button" wire:click="openEdit({{ $task->id }})" class="rounded-lg p-2 text-zinc-500 transition hover:bg-zinc-100 dark:hover:bg-zinc-800" aria-label="{{ __('Edit') }}">
                                 <flux:icon name="pencil" class="size-5" />
                             </button>

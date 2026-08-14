@@ -1,4 +1,4 @@
-const CACHE_NAME = 'daily-planner-v3';
+const CACHE_NAME = 'daily-planner-v4';
 const STATIC_CACHE = `${CACHE_NAME}-static`;
 const RUNTIME_CACHE = `${CACHE_NAME}-runtime`;
 
@@ -49,6 +49,27 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
+    // wire:navigate page fetches must be network-first (not cache-first)
+    if (request.headers.get('x-livewire-navigate') || request.mode === 'navigate' || request.destination === 'document') {
+        event.respondWith(
+            fetch(request)
+                .then((response) => {
+                    if (response && response.status === 200 && response.type === 'basic') {
+                        const clone = response.clone();
+                        caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, clone));
+                    }
+                    return response;
+                })
+                .catch(() => {
+                    return caches.match(request).then((cached) => {
+                        if (cached) return cached;
+                        return caches.match('/offline');
+                    });
+                })
+        );
+        return;
+    }
+
     if (url.pathname.includes('/api/')) {
         return;
     }
@@ -69,26 +90,7 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    if (request.mode === 'navigate') {
-        event.respondWith(
-            fetch(request)
-                .then((response) => {
-                    if (response && response.status === 200 && response.type === 'basic') {
-                        const clone = response.clone();
-                        caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, clone));
-                    }
-                    return response;
-                })
-                .catch(() => {
-                    return caches.match(request).then((cached) => {
-                        if (cached) return cached;
-                        return caches.match('/offline');
-                    });
-                })
-        );
-        return;
-    }
-
+    // Share responses with same-origin
     event.respondWith(
         caches.match(request).then((cached) => {
             const fetchPromise = fetch(request)

@@ -2,6 +2,9 @@
 
 namespace App\Livewire\Today;
 
+use App\Actions\CompleteTaskAction;
+use App\Actions\UpdateTaskProgressAction;
+use App\Enums\TaskStatus;
 use App\Models\Category;
 use App\Models\DailyPlan;
 use App\Models\Goal;
@@ -197,6 +200,34 @@ class Index extends Component
         $task->delete();
         $this->todayPlanCache = null;
         Flux::toast(text: __('Task removed.'), variant: 'success');
+    }
+
+    public function toggleComplete(int $id, CompleteTaskAction $completeAction, UpdateTaskProgressAction $progressAction): void
+    {
+        $task = Task::findOrFail($id);
+        $this->authorize('update', $task);
+
+        if ($task->status === TaskStatus::Completed) {
+            $progressAction->execute($task, ['status' => TaskStatus::Pending, 'progress_percentage' => $task->progress_percentage]);
+            $this->dispatch('task-updated', id: $id, status: 'pending');
+            Flux::toast(text: __('Task reopened.'), variant: 'info');
+        } else {
+            $completeAction->execute($task, notes: __('Task completed.'));
+            $this->dispatch('task-updated', id: $id, status: 'completed');
+            Flux::toast(text: __('Task completed!'), variant: 'success');
+        }
+
+        $this->todayPlanCache = null;
+    }
+
+    public function skipTaskFromList(int $id, UpdateTaskProgressAction $action): void
+    {
+        $task = Task::findOrFail($id);
+        $this->authorize('update', $task);
+        $action->execute($task, ['status' => TaskStatus::Skipped, 'progress_percentage' => $task->progress_percentage]);
+        $this->dispatch('task-updated', id: $id, status: 'skipped');
+        $this->todayPlanCache = null;
+        Flux::toast(text: __('Task skipped.'), variant: 'warning');
     }
 
     public function markPlan(): void

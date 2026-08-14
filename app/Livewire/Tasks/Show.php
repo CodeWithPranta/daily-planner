@@ -88,6 +88,7 @@ class Show extends Component
         $this->reset(['notes', 'reason', 'worked_hours', 'worked_minutes']);
         $this->progress = $this->task()->progress_percentage;
 
+        $this->dispatch('task-updated', id: $task->id, status: $validated['status']);
         Flux::toast(text: __('Progress logged.'), variant: 'success');
     }
 
@@ -96,6 +97,7 @@ class Show extends Component
         $task = $this->task();
         $this->authorize('update', $task);
         $action->execute($task, notes: __('Task completed.'));
+        $this->dispatch('task-updated', id: $task->id, status: 'completed');
         Flux::toast(text: __('Task completed! 🎉'), variant: 'success');
     }
 
@@ -104,6 +106,7 @@ class Show extends Component
         $task = $this->task();
         $this->authorize('update', $task);
         $action->execute($task, ['status' => TaskStatus::Skipped, 'progress_percentage' => $task->progress_percentage]);
+        $this->dispatch('task-updated', id: $task->id, status: 'skipped');
         Flux::toast(text: __('Task skipped.'), variant: 'warning');
     }
 
