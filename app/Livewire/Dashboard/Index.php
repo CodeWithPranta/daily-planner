@@ -2,8 +2,10 @@
 
 namespace App\Livewire\Dashboard;
 
+use App\Enums\TaskStatus;
 use App\Models\Category;
 use App\Models\Goal;
+use App\Models\Task;
 use App\Services\DailyProductivityScoreService;
 use Carbon\Carbon;
 use Flux\Flux;
@@ -174,6 +176,12 @@ class Index extends Component
             ? (int) min(100, round($score->totalActualMinutes / $score->totalPlannedMinutes * 100))
             : 0;
 
+        $startableTask = Task::forUser((int) $user->id)
+            ->forDate(Carbon::today())
+            ->whereIn('status', [TaskStatus::Pending, TaskStatus::InProgress])
+            ->orderBy('order_column')
+            ->first();
+
         return view('livewire.dashboard.index', [
             'greeting' => $greeting,
             'todayLabel' => $today,
@@ -188,6 +196,7 @@ class Index extends Component
             'categories' => $this->categories(),
             'colorOptions' => $this->colorOptions(),
             'iconOptions' => $this->iconOptions(),
+            'startableTask' => $startableTask,
         ]);
     }
 }

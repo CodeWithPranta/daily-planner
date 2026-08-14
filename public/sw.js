@@ -1,11 +1,8 @@
-const CACHE_NAME = 'daily-planner-v2';
+const CACHE_NAME = 'daily-planner-v3';
 const STATIC_CACHE = `${CACHE_NAME}-static`;
 const RUNTIME_CACHE = `${CACHE_NAME}-runtime`;
 
 const STATIC_ASSETS = [
-    '/',
-    '/dashboard',
-    '/today',
     '/offline',
     '/manifest.webmanifest',
     '/favicon.svg',
@@ -30,6 +27,8 @@ self.addEventListener('activate', (event) => {
                     .map((key) => caches.delete(key))
             ))
             .then(() => self.clients.claim())
+            .then(() => self.clients.matchAll())
+            .then((clients) => clients.forEach((client) => client.navigate(client.url)))
     );
 });
 
@@ -42,17 +41,18 @@ self.addEventListener('fetch', (event) => {
 
     const url = new URL(request.url);
 
-    // Skip Livewire/Ajax requests
+    if (url.origin !== self.location.origin) {
+        return;
+    }
+
     if (request.headers.get('x-livewire') || url.pathname.includes('/livewire/')) {
         return;
     }
 
-    // Skip API requests
     if (url.pathname.includes('/api/')) {
         return;
     }
 
-    // Cache-first for static assets (CSS, JS, fonts, icons)
     if (url.pathname.match(/\.(css|js|woff2?|png|svg|ico|jpg|jpeg|gif)$/)) {
         event.respondWith(
             caches.match(request).then((cached) => {
@@ -69,12 +69,11 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Network-first for navigation requests
     if (request.mode === 'navigate') {
         event.respondWith(
             fetch(request)
                 .then((response) => {
-                    if (response && response.status === 200) {
+                    if (response && response.status === 200 && response.type === 'basic') {
                         const clone = response.clone();
                         caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, clone));
                     }
@@ -90,7 +89,6 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Stale-while-revalidate for everything else
     event.respondWith(
         caches.match(request).then((cached) => {
             const fetchPromise = fetch(request)

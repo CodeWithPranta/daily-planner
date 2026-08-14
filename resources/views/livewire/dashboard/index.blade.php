@@ -111,10 +111,17 @@
             <flux:icon name="plus-circle" class="size-5 text-brand-600 dark:text-brand-400" />
             {{ __('Add Task') }}
         </a>
-        <a href="{{ route('today') }}" wire:navigate class="flex items-center gap-2 rounded-2xl border border-zinc-200/80 bg-white p-4 text-sm font-medium shadow-sm transition active:scale-95 dark:border-zinc-800/80 dark:bg-zinc-900">
-            <flux:icon name="play" class="size-5 text-emerald-500" />
-            {{ __('Start Timer') }}
-        </a>
+        @if ($startableTask)
+            <a href="{{ route('tasks.show', $startableTask) }}" wire:navigate class="flex items-center gap-2 rounded-2xl border border-zinc-200/80 bg-white p-4 text-sm font-medium shadow-sm transition active:scale-95 dark:border-zinc-800/80 dark:bg-zinc-900">
+                <flux:icon name="play" class="size-5 text-emerald-500" />
+                {{ __('Start Timer') }}
+            </a>
+        @else
+            <a href="{{ route('today', ['add' => 1]) }}" wire:navigate class="flex items-center gap-2 rounded-2xl border border-zinc-200/80 bg-white p-4 text-sm font-medium shadow-sm transition active:scale-95 dark:border-zinc-800/80 dark:bg-zinc-900">
+                <flux:icon name="plus-circle" class="size-5 text-zinc-400" />
+                {{ __('Add Task First') }}
+            </a>
+        @endif
         <a href="{{ route('review.daily') }}" wire:navigate class="flex items-center gap-2 rounded-2xl border border-zinc-200/80 bg-white p-4 text-sm font-medium shadow-sm transition active:scale-95 dark:border-zinc-800/80 dark:bg-zinc-900">
             <flux:icon name="moon" class="size-5 text-violet-500" />
             {{ __('End My Day') }}
