@@ -80,30 +80,30 @@ class CategoryInsightService
     }
 
     /**
-     * Get 7-day time trend by category (for stacked bar chart).
+     * Get time trend by category for a date range (for stacked bar chart).
      *
      * @return array{labels: array<int, string>, datasets: array<int, array{label: string, color: string|null, data: array<int, int>}>}
      */
-    public function weeklyTimeByCategory(int $userId, Carbon $referenceDate): array
+    public function weeklyTimeByCategory(int $userId, Carbon $start, Carbon $end): array
     {
-        $weekStart = $referenceDate->copy()->startOfWeek(Carbon::MONDAY);
-        $weekEnd = $weekStart->copy()->addDays(6);
-
         $results = DB::table('tasks')
             ->join('daily_plans', 'tasks.daily_plan_id', '=', 'daily_plans.id')
             ->leftJoin('categories', 'tasks.category_id', '=', 'categories.id')
             ->where('tasks.user_id', $userId)
-            ->whereBetween('daily_plans.date', [$weekStart->startOfDay(), $weekEnd->endOfDay()])
+            ->whereBetween('daily_plans.date', [$start->startOfDay(), $end->endOfDay()])
             ->where('tasks.actual_minutes', '>', 0)
-            ->selectRaw('categories.id as cat_id, categories.name as cat_name, categories.color as cat_color, daily_plans.date, SUM(tasks.actual_minutes) as total')
-            ->groupBy('cat_id', 'cat_name', 'cat_color', 'daily_plans.date')
-            ->orderBy('daily_plans.date')
+            ->selectRaw('categories.id as cat_id, categories.name as cat_name, categories.color as cat_color, DATE(daily_plans.date) as date, SUM(tasks.actual_minutes) as total')
+            ->groupBy('cat_id', 'cat_name', 'cat_color', 'date')
+            ->orderBy('date')
             ->get();
 
         $labels = [];
-        $date = $weekStart->copy();
-        while ($date <= $weekEnd) {
-            $labels[] = $date->translatedFormat('D');
+        $date = $start->copy();
+        $useDayNames = $start->diffInDays($end) < 7;
+        while ($date <= $end) {
+            $labels[] = $useDayNames
+                ? $date->translatedFormat('D')
+                : $date->translatedFormat('M j');
             $date->addDay();
         }
 
@@ -116,10 +116,10 @@ class CategoryInsightService
             $catColor = $first->cat_color ?? '#71717a';
 
             $data = [];
-            $date2 = $weekStart->copy();
-            while ($date2 <= $weekEnd) {
+            $date2 = $start->copy();
+            while ($date2 <= $end) {
                 $dateStr = $date2->toDateString();
-                $row = $results->first(fn ($r) => $r->date === $dateStr);
+                $row = $rows->first(fn ($r) => $r->date === $dateStr);
                 $data[] = $row ? (int) $row->total : 0;
                 $date2->addDay();
             }

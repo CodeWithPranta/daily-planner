@@ -4,6 +4,8 @@
         'categoryDistribution' => $data->categoryDistribution,
         'weeklyTimeByCategory' => $data->weeklyTimeByCategory,
     ]);
+
+    $hasScoreData = $data->activeDayCount > 0;
 @endphp
 
 <div>
@@ -25,7 +27,7 @@
     {{-- Range selector --}}
     <div class="mb-4 flex gap-2 overflow-x-auto no-scrollbar">
         @foreach ($ranges as $key => $label)
-            <button type="button" wire:click="$set('range', '{{ $key }}')"
+            <button type="button" wire:click="setRange('{{ $key }}')"
                 class="flex-none rounded-full px-4 py-1.5 text-sm font-medium transition {{ $range === $key ? 'bg-brand-600 text-white' : 'bg-white text-zinc-600 border border-zinc-200 dark:bg-zinc-900 dark:text-zinc-300 dark:border-zinc-800' }}">
                 {{ $label }}
             </button>
@@ -70,7 +72,7 @@
     </div>
 
     {{-- Score trend chart --}}
-    @if (!empty($data->scoreTrend))
+    @if ($hasScoreData)
         <div class="mb-4">
             <h2 class="mb-2 text-base font-semibold">{{ __('Productivity Score Trend') }}</h2>
             <x-card padding="false" class="overflow-hidden">
@@ -82,7 +84,7 @@
     @else
         <x-card class="mb-4">
             <div class="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
-                <flux:icon name="chart-line" class="size-5" />
+                <flux:icon name="chart-pie" class="size-5" />
                 <p>{{ __('No data for this range yet. Complete some tasks and run a review!') }}</p>
             </div>
         </x-card>
@@ -98,18 +100,32 @@
                 </div>
             </x-card>
         </div>
+    @else
+        <x-card class="mb-4">
+            <div class="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
+                <flux:icon name="chart-pie" class="size-5" />
+                <p>{{ __('No time logged yet. Start tasks with a timer to see category breakdown.') }}</p>
+            </div>
+        </x-card>
     @endif
 
-    {{-- Weekly time by category stacked bar --}}
+    {{-- Time by category stacked bar --}}
     @if (!empty($data->weeklyTimeByCategory['datasets']))
         <div class="mb-4">
-            <h2 class="mb-2 text-base font-semibold">{{ __('Weekly Time by Category') }}</h2>
+            <h2 class="mb-2 text-base font-semibold">{{ __('Time Trend by Category') }}</h2>
             <x-card padding="false" class="overflow-hidden">
                 <div class="p-4">
                     <canvas id="weeklyCategoryChart" height="200"></canvas>
                 </div>
             </x-card>
         </div>
+    @else
+        <x-card class="mb-4">
+            <div class="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
+                <flux:icon name="chart-pie" class="size-5" />
+                <p>{{ __('No time trend data yet. Log time on tasks to see the breakdown.') }}</p>
+            </div>
+        </x-card>
     @endif
 
     {{-- Active goals --}}
@@ -144,7 +160,7 @@
     @endif
 
     {{-- Links to reports --}}
-    @if (!empty($data->scoreTrend))
+    @if ($hasScoreData)
         <div class="mt-6 grid grid-cols-2 gap-3">
             <a href="{{ route('reports.weekly') }}" wire:navigate class="flex items-center gap-2 rounded-2xl border border-zinc-200/80 bg-white p-4 text-sm font-medium shadow-sm transition active:scale-95 dark:border-zinc-800/80 dark:bg-zinc-900">
                 <flux:icon name="calendar-days" class="size-5 text-brand-600 dark:text-brand-400" />
@@ -157,127 +173,6 @@
         </div>
     @endif
 
-    {{-- Chart data (rendered by Blade, read by JS) --}}
-    <script id="analytics-data" type="application/json">{{ $chartData }}</script>
-
-    {{-- Chart.js initialization --}}
-    @verbatim
-    <script>
-    (function() {
-        var dataEl = document.getElementById('analytics-data');
-        if (!dataEl) return;
-        window.__analyticsData = JSON.parse(dataEl.textContent);
-
-        function loadCharts() {
-            if (typeof Chart === 'undefined') return;
-
-            var data = window.__analyticsData;
-
-            // Score trend line chart
-            var trendEl = document.getElementById('scoreTrendChart');
-            if (trendEl && data.scoreTrend.length > 0) {
-                new Chart(trendEl, {
-                    type: 'line',
-                    data: {
-                        labels: data.scoreTrend.map(function(d) { return d.label; }),
-                        datasets: [{
-                            label: 'Score',
-                            data: data.scoreTrend.map(function(d) { return d.score; }),
-                            borderColor: '#6366f1',
-                            backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                            fill: true,
-                            tension: 0.3,
-                            pointRadius: 3,
-                            pointHoverRadius: 6,
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            y: { beginAtZero: true, max: 100, grid: { color: 'rgba(128,128,128,0.1)' } },
-                            x: { grid: { display: false } }
-                        },
-                        plugins: { legend: { display: false } }
-                    }
-                });
-            }
-
-            // Category distribution doughnut
-            var catEl = document.getElementById('categoryChart');
-            if (catEl && data.categoryDistribution.length > 0) {
-                var isDark = document.documentElement.classList.contains('dark');
-                new Chart(catEl, {
-                    type: 'doughnut',
-                    data: {
-                        labels: data.categoryDistribution.map(function(c) { return c.label; }),
-                        datasets: [{
-                            data: data.categoryDistribution.map(function(c) { return c.value; }),
-                            backgroundColor: data.categoryDistribution.map(function(c) { return c.color || '#71717a'; }),
-                            borderWidth: 2,
-                            borderColor: isDark ? '#18181b' : '#fafafa',
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        cutout: '60%',
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                                labels: { padding: 10, font: { size: 11 } }
-                            }
-                        }
-                    }
-                });
-            }
-
-            // Weekly time by category stacked bar
-            var weeklyEl = document.getElementById('weeklyCategoryChart');
-            if (weeklyEl && data.weeklyTimeByCategory.datasets && data.weeklyTimeByCategory.datasets.length > 0) {
-                new Chart(weeklyEl, {
-                    type: 'bar',
-                    data: {
-                        labels: data.weeklyTimeByCategory.labels,
-                        datasets: data.weeklyTimeByCategory.datasets.map(function(ds) {
-                            return {
-                                label: ds.label,
-                                data: ds.data,
-                                backgroundColor: ds.color || '#71717a',
-                                borderRadius: 4,
-                            };
-                        })
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            x: { stacked: true, grid: { display: false } },
-                            y: { stacked: true, beginAtZero: true, grid: { color: 'rgba(128,128,128,0.1)' } }
-                        },
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                                labels: { padding: 10, font: { size: 11 } }
-                            }
-                        }
-                    }
-                });
-            }
-        }
-
-        if (typeof Chart !== 'undefined') {
-            loadCharts();
-        } else {
-            var checkInterval = setInterval(function() {
-                if (typeof Chart !== 'undefined') {
-                    clearInterval(checkInterval);
-                    loadCharts();
-                }
-            }, 100);
-            setTimeout(function() { clearInterval(checkInterval); }, 5000);
-        }
-    })();
-    </script>
-    @endverbatim
+    {{-- Chart data (raw JSON, read by JS in app.js) --}}
+    <script id="analytics-data" type="application/json">{!! $chartData !!}</script>
 </div>

@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Fortify\Contracts\PasskeyUser;
 use Laravel\Fortify\PasskeyAuthenticatable;
@@ -81,7 +82,17 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
     protected function avatarUrl(): Attribute
     {
         return new Attribute(
-            get: fn () => $this->avatar_path ? asset("storage/{$this->avatar_path}") : null,
+            get: function () {
+                if (! $this->avatar_path) {
+                    return null;
+                }
+
+                if (is_link(public_path('storage')) || is_dir(public_path('storage'))) {
+                    return Storage::disk('public')->url($this->avatar_path);
+                }
+
+                return asset($this->avatar_path);
+            },
         );
     }
 

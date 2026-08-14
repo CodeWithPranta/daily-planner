@@ -47,8 +47,8 @@ class AnalyticsService
         // Category time distribution
         $categoryDistribution = $this->categoryInsightService->timeDistribution($userId, $start, $end);
 
-        // Weekly time by category (always current week)
-        $weeklyTimeByCategory = $this->categoryInsightService->weeklyTimeByCategory($userId, Carbon::today());
+        // Time by category for the selected range
+        $weeklyTimeByCategory = $this->categoryInsightService->weeklyTimeByCategory($userId, $start, $end);
 
         // Active goals
         $goals = Goal::forUser($userId)

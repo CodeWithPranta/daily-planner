@@ -15,9 +15,11 @@ class Index extends Component
 {
     public string $range = 'week';
 
-    public function updatedRange(): void
+    public function setRange(string $range): void
     {
-        // Triggers re-render with new data
+        $this->range = $range;
+        $this->dispatch('analytics-range-changed');
+        $this->js('setTimeout(() => window.initAnalyticsCharts && window.initAnalyticsCharts(), 50)');
     }
 
     public function render(): View

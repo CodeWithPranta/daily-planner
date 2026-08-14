@@ -67,6 +67,7 @@ new #[Title('Profile settings')] #[Layout('components.app-shell', ['active' => '
 
         if ($this->removeAvatar && $user->avatar_path) {
             Storage::disk('public')->delete($user->avatar_path);
+            $this->deletePublicFallback($user->avatar_path);
             $user->avatar_path = null;
             $this->removeAvatar = false;
         }
@@ -74,8 +75,10 @@ new #[Title('Profile settings')] #[Layout('components.app-shell', ['active' => '
         if ($this->avatar) {
             if ($user->avatar_path) {
                 Storage::disk('public')->delete($user->avatar_path);
+                $this->deletePublicFallback($user->avatar_path);
             }
             $path = $this->avatar->store('avatars', 'public');
+            $this->copyToPublicFallback($path);
             $user->avatar_path = $path;
             $this->avatar = null;
         }
@@ -114,6 +117,44 @@ new #[Title('Profile settings')] #[Layout('components.app-shell', ['active' => '
     {
         return ! Auth::user() instanceof MustVerifyEmail
             || (Auth::user() instanceof MustVerifyEmail && Auth::user()->hasVerifiedEmail());
+    }
+
+    /**
+     * Copy uploaded file to public/ as fallback when symlink is missing (cPanel).
+     */
+    private function copyToPublicFallback(string $path): void
+    {
+        if (is_link(public_path('storage'))) {
+            return;
+        }
+
+        $source = Storage::disk('public')->path($path);
+        $dest = public_path($path);
+        $dir = dirname($dest);
+
+        if (! is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
+
+        if (file_exists($source)) {
+            @copy($source, $dest);
+        }
+    }
+
+    /**
+     * Delete fallback file from public/ (cPanel).
+     */
+    private function deletePublicFallback(string $path): void
+    {
+        if (is_link(public_path('storage'))) {
+            return;
+        }
+
+        $dest = public_path($path);
+
+        if (file_exists($dest)) {
+            @unlink($dest);
+        }
     }
 }; ?>
 
