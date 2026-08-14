@@ -1,9 +1,7 @@
 <?php
 
 use App\Concerns\ProfileValidationRules;
-/* @chisel-email-verification */
 use Flux\Flux;
-/* @end-chisel-email-verification */
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
@@ -87,7 +85,6 @@ new #[Title('Profile settings')] #[Layout('components.app-shell', ['active' => '
         Flux::toast(variant: 'success', text: __('Profile updated.'));
     }
 
-    /* @chisel-email-verification */
     /**
      * Send an email verification notification to the current user.
      */
@@ -118,7 +115,6 @@ new #[Title('Profile settings')] #[Layout('components.app-shell', ['active' => '
         return ! Auth::user() instanceof MustVerifyEmail
             || (Auth::user() instanceof MustVerifyEmail && Auth::user()->hasVerifiedEmail());
     }
-    /* @end-chisel-email-verification */
 }; ?>
 
 <section class="w-full">
@@ -176,7 +172,6 @@ new #[Title('Profile settings')] #[Layout('components.app-shell', ['active' => '
             <div>
                 <flux:input wire:model="email" :label="__('Email')" type="email" required autocomplete="email" />
 
-                {{-- @chisel-email-verification --}}
                 @if ($this->hasUnverifiedEmail)
                     <div>
                         <flux:text class="mt-4">
@@ -194,7 +189,6 @@ new #[Title('Profile settings')] #[Layout('components.app-shell', ['active' => '
                         @endif
                     </div>
                 @endif
-                {{-- @end-chisel-email-verification --}}
             </div>
 
             <flux:select wire:model="gender" :label="__('Gender')">
@@ -215,12 +209,8 @@ new #[Title('Profile settings')] #[Layout('components.app-shell', ['active' => '
             </div>
         </form>
 
-        {{-- @chisel-email-verification --}}
         @if ($this->showDeleteUser)
-        {{-- @end-chisel-email-verification --}}
             <livewire:pages::settings.delete-user-form />
-        {{-- @chisel-email-verification --}}
         @endif
-        {{-- @end-chisel-email-verification --}}
     </x-pages::settings.layout>
 </section>
