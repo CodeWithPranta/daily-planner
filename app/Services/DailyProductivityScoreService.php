@@ -8,7 +8,7 @@ use App\Models\DailyScore;
 use App\Models\Task;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Database\UniqueConstraintViolationException;
 
 /**
  * Result of a daily productivity score calculation.
@@ -195,24 +195,32 @@ class DailyProductivityScoreService
     {
         $result = $this->calculateForUser($userId, $date);
 
-        return DB::transaction(function () use ($userId, $date, $result, $reflection): DailyScore {
-            return DailyScore::updateOrCreate(
-                ['user_id' => $userId, 'date' => $date->toDateString()],
-                [
-                    'score' => $result->score,
-                    'total_tasks' => $result->totalCount,
-                    'completed_tasks' => $result->completedCount,
-                    'in_progress_tasks' => $result->inProgressCount,
-                    'pending_tasks' => $result->pendingCount,
-                    'skipped_tasks' => $result->skippedCount,
-                    'partial_tasks' => $result->partialCount,
-                    'total_planned_minutes' => $result->totalPlannedMinutes,
-                    'total_actual_minutes' => $result->totalActualMinutes,
-                    'category_breakdown' => json_encode($result->categoryBreakdown),
-                    'reflection' => $reflection,
-                ],
-            );
-        });
+        $attributes = [
+            'score' => $result->score,
+            'total_tasks' => $result->totalCount,
+            'completed_tasks' => $result->completedCount,
+            'in_progress_tasks' => $result->inProgressCount,
+            'pending_tasks' => $result->pendingCount,
+            'skipped_tasks' => $result->skippedCount,
+            'partial_tasks' => $result->partialCount,
+            'total_planned_minutes' => $result->totalPlannedMinutes,
+            'total_actual_minutes' => $result->totalActualMinutes,
+            'category_breakdown' => json_encode($result->categoryBreakdown),
+            'reflection' => $reflection,
+        ];
+
+        $match = ['user_id' => $userId, 'date' => $date->toDateString()];
+
+        try {
+            return DailyScore::updateOrCreate($match, $attributes);
+        } catch (UniqueConstraintViolationException) {
+            // A concurrent request inserted the row between our find and
+            // insert. Re-fetch it and update in place instead.
+            $score = DailyScore::forUser($userId)->forDate($date)->firstOrFail();
+            $score->forceFill($attributes)->save();
+
+            return $score->refresh();
+        }
     }
 
     /**
@@ -220,12 +228,8 @@ class DailyProductivityScoreService
      */
     public function getOrCreateForUser(int $userId, Carbon $date): DailyScore
     {
-        $existing = DailyScore::forUser($userId)->forDate($date)->first();
+        $score = DailyScore::forUser($userId)->forDate($date)->first();
 
-        if ($existing) {
-            return $existing;
-        }
-
-        return $this->storeForUser($userId, $date);
+        return $score ?? $this->storeForUser($userId, $date);
     }
 }
