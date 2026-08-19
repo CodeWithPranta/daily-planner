@@ -61,28 +61,57 @@ class DemoDataSeeder extends Seeder
 
         $plan = DailyPlan::factory()->for($user)->planned()->create(['date' => Carbon::today()->toDateString()]);
 
+        // Today's tasks: a realistic mid-day mix (some done, one in progress,
+        // the rest pending) so the dashboard/analytics show meaningful data.
         $tasks = [
-            ['Study Bangladesh Affairs', $bcs, 120, 'high', $bcsGoal->id],
-            ['Build Laravel Project', $coding, 180, 'high', null],
-            ['Learn Spanish Vocabulary', $spanish, 60, 'medium', null],
-            ['Exercise', $health, 45, 'medium', null],
-            ['Read with kids', $family, 60, 'low', null],
-            ['Send client invoices', $freelancing, 90, 'high', null],
+            ['Study Bangladesh Affairs', $bcs, 120, 'high', $bcsGoal->id, 'completed'],
+            ['Build Laravel Project', $coding, 180, 'high', null, 'in_progress'],
+            ['Learn Spanish Vocabulary', $spanish, 60, 'medium', null, 'completed'],
+            ['Exercise', $health, 45, 'medium', null, 'pending'],
+            ['Read with kids', $family, 60, 'low', null, 'pending'],
+            ['Send client invoices', $freelancing, 90, 'high', null, 'in_progress'],
         ];
 
-        foreach ($tasks as [$title, $category, $minutes, $priority, $goalId]) {
-            Task::factory()->for($user)->for($plan, 'dailyPlan')->for($category, 'category')->create([
+        $scoreService = app(DailyProductivityScoreService::class);
+
+        foreach ($tasks as [$title, $category, $minutes, $priority, $goalId, $status]) {
+            $taskData = [
                 'title' => $title,
                 'planned_minutes' => $minutes,
                 'priority' => $priority,
-                'status' => 'pending',
+                'status' => $status,
                 'goal_id' => $goalId,
-            ]);
+            ];
+
+            if ($status === 'completed') {
+                $taskData['progress_percentage'] = 100;
+                $taskData['actual_minutes'] = (int) ($minutes * fake()->randomFloat(2, 0.7, 1.0));
+                $taskData['started_at'] = Carbon::today()->addHours(fake()->numberBetween(6, 9));
+                $taskData['completed_at'] = Carbon::today()->addHours(fake()->numberBetween(10, 14));
+            } elseif ($status === 'in_progress') {
+                $progress = fake()->numberBetween(30, 70);
+                $taskData['progress_percentage'] = $progress;
+                $taskData['actual_minutes'] = (int) ($minutes * ($progress / 100));
+                $taskData['started_at'] = Carbon::today()->addHours(fake()->numberBetween(8, 14));
+            } else {
+                $taskData['progress_percentage'] = 0;
+                $taskData['actual_minutes'] = 0;
+            }
+
+            Task::factory()
+                ->for($user)
+                ->for($plan, 'dailyPlan')
+                ->for($category, 'category')
+                ->create($taskData);
         }
+
+        // Store today's daily score so analytics/streaks reflect the current day
+        // (not just historical days). This prevents the "This Week" range from
+        // showing all zeros early in the week.
+        $scoreService->storeForUser($user->id, Carbon::today());
 
         // Seed historical daily scores for the past 6 days (for streaks/reports)
         $histCats = [$bcs, $coding, $spanish, $health];
-        $scoreService = app(DailyProductivityScoreService::class);
         for ($i = 6; $i >= 1; $i--) {
             $date = Carbon::today()->subDays($i);
             $histPlan = DailyPlan::factory()->for($user)->planned()->create(['date' => $date->toDateString()]);

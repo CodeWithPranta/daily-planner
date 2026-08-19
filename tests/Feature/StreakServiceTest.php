@@ -2,8 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Actions\CompleteTaskAction;
+use App\Enums\TaskStatus;
+use App\Models\DailyPlan;
 use App\Models\DailyScore;
+use App\Models\Task;
 use App\Models\User;
+use App\Services\DailyProductivityScoreService;
 use App\Services\StreakService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -157,5 +162,68 @@ class StreakServiceTest extends TestCase
         $this->assertFalse($history[0]['has_activity']);
         $this->assertSame(2, $history[6]['completed_tasks']);
         $this->assertSame(65.0, $history[6]['score']);
+    }
+
+    public function test_completing_a_task_updates_streak_without_running_review(): void
+    {
+        $user = User::factory()->create();
+        $plan = DailyPlan::factory()->for($user)->create(['date' => Carbon::today()]);
+        $task = Task::factory()
+            ->for($user)
+            ->for($plan, 'dailyPlan')
+            ->create(['status' => TaskStatus::Pending]);
+
+        app(CompleteTaskAction::class)->execute($task);
+
+        $service = app(StreakService::class);
+        $this->assertSame(1, $service->currentStreak($user->id));
+
+        // The cached daily score is refreshed so analytics reads real data.
+        $score = DailyScore::forUser($user->id)->forDate(Carbon::today())->first();
+        $this->assertNotNull($score);
+        $this->assertSame(1, $score->completed_tasks);
+        $this->assertSame(1, $score->total_tasks);
+    }
+
+    public function test_streak_counts_consecutive_days_of_completed_tasks(): void
+    {
+        $user = User::factory()->create();
+        $today = Carbon::today();
+
+        foreach ([$today, $today->copy()->subDay()] as $date) {
+            $plan = DailyPlan::factory()->for($user)->create(['date' => $date]);
+            $task = Task::factory()
+                ->for($user)
+                ->for($plan, 'dailyPlan')
+                ->create(['status' => TaskStatus::Pending]);
+
+            app(CompleteTaskAction::class)->execute($task);
+        }
+
+        $this->assertSame(2, app(StreakService::class)->currentStreak($user->id));
+    }
+
+    public function test_refreshing_score_after_task_completion_preserves_review_reflection(): void
+    {
+        $user = User::factory()->create();
+        $plan = DailyPlan::factory()->for($user)->create(['date' => Carbon::today()]);
+        $task = Task::factory()
+            ->for($user)
+            ->for($plan, 'dailyPlan')
+            ->create(['status' => TaskStatus::Pending]);
+
+        // Simulate a prior end-of-day review that left a reflection.
+        app(DailyProductivityScoreService::class)->storeForUser(
+            $user->id,
+            Carbon::today(),
+            'Great focus today.',
+        );
+
+        app(CompleteTaskAction::class)->execute($task);
+
+        $score = DailyScore::forUser($user->id)->forDate(Carbon::today())->first();
+        $this->assertNotNull($score);
+        $this->assertSame('Great focus today.', $score->reflection);
+        $this->assertSame(1, $score->completed_tasks);
     }
 }

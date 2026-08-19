@@ -4,6 +4,7 @@ namespace App\Actions;
 
 use App\Enums\TaskStatus;
 use App\Models\Task;
+use App\Services\DailyProductivityScoreService;
 use App\Services\GoalProgressService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,7 @@ class CompleteTaskAction
 {
     public function __construct(
         private GoalProgressService $goalProgressService,
+        private DailyProductivityScoreService $scoreService,
     ) {}
 
     /**
@@ -45,6 +47,9 @@ class CompleteTaskAction
                     $this->goalProgressService->syncFromTasks($task->goal);
                 }
             }
+
+            // Keep the cached daily score (and therefore streak/analytics) in sync.
+            $this->scoreService->refreshForTask($task);
 
             return $task->refresh();
         });

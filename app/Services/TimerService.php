@@ -16,6 +16,10 @@ use Illuminate\Support\Facades\DB;
  */
 class TimerService
 {
+    public function __construct(
+        private DailyProductivityScoreService $scoreService,
+    ) {}
+
     /**
      * Start a new timer for a task. Stops any existing active timer for the user first.
      */
@@ -118,6 +122,9 @@ class TimerService
                 }
             }
             $task->save();
+
+            // Keep the cached daily score (and therefore streak/analytics) in sync.
+            $this->scoreService->refreshForTask($task);
 
             return $session->refresh();
         });

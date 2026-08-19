@@ -10,12 +10,20 @@ use Carbon\Carbon;
  */
 class StreakService
 {
+    public function __construct(
+        private DailyProductivityScoreService $scoreService,
+    ) {}
+
     /**
      * Get the user's current streak (consecutive days ending today or yesterday).
      */
     public function currentStreak(int $userId): int
     {
         $today = Carbon::today();
+
+        // Make sure score rows exist for recent history so the walk-back reflects
+        // real task activity (not just reviewed days).
+        $this->scoreService->ensureRangePopulated($userId, $today->copy()->subYear(), $today);
 
         // Check if today has a qualifying score; if not, start from yesterday
         $todayScore = DailyScore::forUser($userId)->forDate($today)->first();
@@ -40,6 +48,9 @@ class StreakService
      */
     public function longestStreak(int $userId): int
     {
+        $today = Carbon::today();
+        $this->scoreService->ensureRangePopulated($userId, $today->copy()->subYear(), $today);
+
         $scores = DailyScore::forUser($userId)
             ->activeDays()
             ->orderBy('date')
@@ -88,6 +99,8 @@ class StreakService
     {
         $end = Carbon::today();
         $start = $end->copy()->subDays($days - 1);
+
+        $this->scoreService->ensureRangePopulated($userId, $start, $end);
 
         $scores = DailyScore::forUser($userId)
             ->betweenDates($start, $end)

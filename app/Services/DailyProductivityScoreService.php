@@ -193,9 +193,88 @@ class DailyProductivityScoreService
      */
     public function storeForUser(int $userId, Carbon $date, ?string $reflection = null): DailyScore
     {
-        $result = $this->calculateForUser($userId, $date);
+        $attributes = $this->scoreAttributes($this->calculateForUser($userId, $date));
+        $attributes['reflection'] = $reflection;
 
-        $attributes = [
+        return $this->persist($userId, $date, $attributes);
+    }
+
+    /**
+     * Recalculate and persist the daily score for a user/date without touching
+     * the reflection text. Use this whenever a task changes so analytics and
+     * streaks stay in sync without requiring an end-of-day review.
+     */
+    public function refreshForUser(int $userId, Carbon $date): DailyScore
+    {
+        return $this->persist($userId, $date, $this->scoreAttributes($this->calculateForUser($userId, $date)));
+    }
+
+    /**
+     * Refresh the daily score for the plan date that the given task belongs to.
+     * No-op when the task is not attached to a daily plan.
+     */
+    public function refreshForTask(Task $task): ?DailyScore
+    {
+        if (! $task->daily_plan_id) {
+            return null;
+        }
+
+        $plan = $task->relationLoaded('dailyPlan') ? $task->dailyPlan : $task->dailyPlan()->first();
+
+        return $plan ? $this->refreshForUser((int) $task->user_id, Carbon::parse($plan->date)) : null;
+    }
+
+    /**
+     * Ensure a daily score row exists for every day in [start, end] that has
+     * planned tasks. Missing days are calculated from current task data and
+     * persisted (existing rows, including review reflections, are left alone).
+     * This makes analytics/streaks reflect real activity without requiring an
+     * end-of-day review or a manual backfill command.
+     */
+    public function ensureRangePopulated(int $userId, Carbon $start, Carbon $end): void
+    {
+        $planDates = DailyPlan::forUser($userId)
+            ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
+            ->whereHas('tasks')
+            ->get()
+            ->map(fn (DailyPlan $plan) => $plan->date->toDateString())
+            ->all();
+
+        if ($planDates === []) {
+            return;
+        }
+
+        $existingKeys = array_flip(
+            DailyScore::forUser($userId)
+                ->betweenDates($start, $end)
+                ->get()
+                ->map(fn (DailyScore $score) => $score->date->toDateString())
+                ->all()
+        );
+
+        foreach ($planDates as $date) {
+            if (! isset($existingKeys[$date])) {
+                $this->refreshForUser($userId, Carbon::parse($date));
+            }
+        }
+    }
+
+    /**
+     * Get a stored DailyScore for a user on a given date, or calculate and store it.
+     */
+    public function getOrCreateForUser(int $userId, Carbon $date): DailyScore
+    {
+        $score = DailyScore::forUser($userId)->forDate($date)->first();
+
+        return $score ?? $this->storeForUser($userId, $date);
+    }
+
+    /**
+     * @return array<string, float|int|string>
+     */
+    private function scoreAttributes(DailyScoreResult $result): array
+    {
+        return [
             'score' => $result->score,
             'total_tasks' => $result->totalCount,
             'completed_tasks' => $result->completedCount,
@@ -205,10 +284,15 @@ class DailyProductivityScoreService
             'partial_tasks' => $result->partialCount,
             'total_planned_minutes' => $result->totalPlannedMinutes,
             'total_actual_minutes' => $result->totalActualMinutes,
-            'category_breakdown' => json_encode($result->categoryBreakdown),
-            'reflection' => $reflection,
+            'category_breakdown' => json_encode($result->categoryBreakdown) ?: '[]',
         ];
+    }
 
+    /**
+     * @param  array<string, float|int|string>  $attributes
+     */
+    private function persist(int $userId, Carbon $date, array $attributes): DailyScore
+    {
         $match = ['user_id' => $userId, 'date' => $date->toDateString()];
 
         try {
@@ -221,15 +305,5 @@ class DailyProductivityScoreService
 
             return $score->refresh();
         }
-    }
-
-    /**
-     * Get a stored DailyScore for a user on a given date, or calculate and store it.
-     */
-    public function getOrCreateForUser(int $userId, Carbon $date): DailyScore
-    {
-        $score = DailyScore::forUser($userId)->forDate($date)->first();
-
-        return $score ?? $this->storeForUser($userId, $date);
     }
 }

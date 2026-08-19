@@ -4,6 +4,7 @@ namespace App\Actions;
 
 use App\Enums\TaskStatus;
 use App\Models\Task;
+use App\Services\DailyProductivityScoreService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -12,6 +13,10 @@ use Illuminate\Support\Facades\DB;
  */
 class UpdateTaskProgressAction
 {
+    public function __construct(
+        private DailyProductivityScoreService $scoreService,
+    ) {}
+
     /**
      * Execute the action.
      *
@@ -51,6 +56,9 @@ class UpdateTaskProgressAction
             }
 
             $task->save();
+
+            // Keep the cached daily score (and therefore streak/analytics) in sync.
+            $this->scoreService->refreshForTask($task);
 
             return $task->refresh();
         });

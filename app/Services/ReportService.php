@@ -11,6 +11,10 @@ use Illuminate\Database\Eloquent\Collection;
  */
 class ReportService
 {
+    public function __construct(
+        private DailyProductivityScoreService $scoreService,
+    ) {}
+
     /**
      * Get weekly summary for a user ending on the given date (defaults to today).
      */
@@ -20,6 +24,8 @@ class ReportService
 
         $weekStart = $referenceDate->copy()->startOfWeek(Carbon::MONDAY);
         $weekEnd = $weekStart->copy()->addDays(6);
+
+        $this->scoreService->ensureRangePopulated($userId, $weekStart, $weekEnd);
 
         $scores = DailyScore::forUser($userId)
             ->betweenDates($weekStart, $weekEnd)
@@ -38,6 +44,8 @@ class ReportService
 
         $monthStart = $referenceDate->copy()->startOfMonth();
         $monthEnd = $referenceDate->copy()->endOfMonth();
+
+        $this->scoreService->ensureRangePopulated($userId, $monthStart, $monthEnd);
 
         $scores = DailyScore::forUser($userId)
             ->betweenDates($monthStart, $monthEnd)

@@ -15,6 +15,7 @@ class AnalyticsService
     public function __construct(
         private StreakService $streakService,
         private CategoryInsightService $categoryInsightService,
+        private DailyProductivityScoreService $scoreService,
     ) {}
 
     /**
@@ -23,6 +24,10 @@ class AnalyticsService
     public function getAnalytics(int $userId, string $range): AnalyticsData
     {
         [$start, $end] = $this->resolveRange($range);
+
+        // Auto-populate any missing daily score rows from existing tasks so the
+        // page reflects real activity even without an end-of-day review.
+        $this->scoreService->ensureRangePopulated($userId, $start, $end);
 
         // Daily scores for trend
         $scores = DailyScore::forUser($userId)
